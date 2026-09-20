@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "log-db": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--with",
+        "mcp[cli]>=2.0.0",
+        "python",
+        "${CLAUDE_PROJECT_DIR:-.}/mcp_servers/log_db_server.py"
+      ]
+    },
+    "manual-rag": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--with",
+        "mcp[cli]>=2.0.0",
+        "--with-requirements",
+        "${CLAUDE_PROJECT_DIR:-.}/rag/requirements.txt",
+        "python",
+        "${CLAUDE_PROJECT_DIR:-.}/mcp_servers/manual_rag_server.py"
+      ]
+    }
+  }
+}

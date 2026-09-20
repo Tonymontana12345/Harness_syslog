@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.py[cod]
+data/Store/chroma/
+.DS_Store
+.Rhistory
+.claude/settings.local.json
+data/Manual/*.pdf
+output/*.md
+Token/token_usage.json
+Token/dashboard.html

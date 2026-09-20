@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>토큰 사용량</title>
+<style>
+  :root {
+    --bg: #fafaf9; --card: #ffffff; --text: #1c1917; --muted: #78716c; --line: #e7e5e4;
+    --c-in: #2563eb; --c-out: #d97706; --c-cw: #0d9488; --c-cr: #a8a29e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1917; --card: #292524; --text: #f5f5f4; --muted: #a8a29e; --line: #44403c;
+      --c-in: #60a5fa; --c-out: #fbbf24; --c-cw: #2dd4bf; --c-cr: #78716c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--text);
+    font: 14px/1.5 -apple-system, "Apple SD Gothic Neo", "Segoe UI", sans-serif; }
+  main { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  select { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--card); color: var(--text); max-width: 100%; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .tile .k { color: var(--muted); font-size: 12px; }
+  .tile .v { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 8px 0 12px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .bar-row { display: grid; grid-template-columns: 200px 1fr 80px; gap: 10px; align-items: center; padding: 4px 0; }
+  .bar-label { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { display: flex; height: 16px; background: var(--line); border-radius: 3px; overflow: hidden; }
+  .bar-track span { display: block; height: 100%; }
+  .bar-total { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+  th { color: var(--muted); font-weight: 500; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .scroll { overflow-x: auto; }
+  @media (max-width: 600px) { .bar-row { grid-template-columns: 1fr; gap: 2px; } .bar-total { text-align: left; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>토큰 사용량</h1>
+  <div class="sub" id="sub"></div>
+  <div class="card"><label>실행 선택 <select id="run"></select></label></div>
+  <div class="tiles" id="tiles"></div>
+  <div class="card">
+    <strong>스텝별 토큰</strong>
+    <div class="legend">
+      <span><i style="background:var(--c-in)"></i>입력</span>
+      <span><i style="background:var(--c-out)"></i>출력</span>
+      <span><i style="background:var(--c-cw)"></i>캐시 생성</span>
+      <span><i style="background:var(--c-cr)"></i>캐시 읽기</span>
+    </div>
+    <div id="bars"></div>
+    <div class="note">캐시 읽기는 매 스텝 앞 컨텍스트를 다시 읽는 양이라 누적되어 커집니다.</div>
+  </div>
+  <div class="card scroll">
+    <table id="tbl"></table>
+  </div>
+</main>
+<script>
+const DATA = __DATA__;
+const runs = (DATA.runs || []).slice().sort((a, b) => (b.started || "").localeCompare(a.started || ""));
+const fmt = n => Number(n).toLocaleString("ko-KR");
+const F = [["input","입력","--c-in"],["output","출력","--c-out"],["cache_creation","캐시 생성","--c-cw"],["cache_read","캐시 읽기","--c-cr"]];
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const sel = document.getElementById("run");
+document.getElementById("sub").textContent = `기록된 실행 ${runs.length}건`;
+runs.forEach((r, i) => {
+  const o = document.createElement("option");
+  o.value = i;
+  o.textContent = `${(r.started || "").slice(0, 19).replace("T", " ")} · ${r.agent_type} · ${r.run_id}`;
+  sel.appendChild(o);
+});
+function draw() {
+  const r = runs[sel.value];
+  if (!r) { document.getElementById("tiles").innerHTML = '<div class="tile"><div class="k">기록 없음</div></div>'; return; }
+  const t = r.totals;
+  const dur = r.started && r.ended ? Math.round((new Date(r.ended) - new Date(r.started)) / 1000) : null;
+  document.getElementById("tiles").innerHTML = [
+    ["입력", t.input], ["출력", t.output], ["캐시 생성", t.cache_creation], ["캐시 읽기", t.cache_read],
+    ["스텝 수", r.steps.length], ["소요(초, 첫~마지막 응답)", dur ?? "-"]
+  ].map(([k, v]) => `<div class="tile"><div class="k">${k}</div><div class="v">${typeof v === "number" ? fmt(v) : v}</div></div>`).join("");
+  const max = Math.max(...r.steps.map(s => F.reduce((a, [f]) => a + s[f], 0)));
+  document.getElementById("bars").innerHTML = r.steps.map(s => {
+    const tot = F.reduce((a, [f]) => a + s[f], 0);
+    const label = `${s.n}. ${s.tools.length ? s.tools.join(", ") : "최종 응답"}`;
+    const segs = F.map(([f, name, c]) => `<span title="${name} ${fmt(s[f])}" style="width:${max ? s[f] / max * 100 : 0}%;background:var(${c})"></span>`).join("");
+    return `<div class="bar-row"><div class="bar-label" title="${esc(label)}">${esc(label)}</div><div class="bar-track">${segs}</div><div class="bar-total">${fmt(tot)}</div></div>`;
+  }).join("");
+  document.getElementById("tbl").innerHTML =
+    "<tr><th>#</th><th>도구</th>" + F.map(f => `<th>${f[1]}</th>`).join("") + "</tr>" +
+    r.steps.map(s => `<tr><td>${s.n}</td><td>${esc(s.tools.join(", ") || "최종 응답")}</td>${F.map(([f]) => `<td>${fmt(s[f])}</td>`).join("")}</tr>`).join("") +
+    `<tr><td></td><td><strong>합계</strong></td>${F.map(([f]) => `<td><strong>${fmt(t[f])}</strong></td>`).join("")}</tr>`;
+}
+sel.addEventListener("change", draw);
+draw();
+</script>
+</body>
+</html>
