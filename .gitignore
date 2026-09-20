@@ -5,7 +5,10 @@ data/Store/chroma/
 .DS_Store
 .Rhistory
 .claude/settings.local.json
+.mcp.local.json
 data/Manual/*.pdf
 output/*.md
 Token/token_usage.json
 Token/dashboard.html
+.portfolio-build/
+portfolio/

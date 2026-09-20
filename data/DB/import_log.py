@@ -126,21 +126,36 @@ def main() -> None:
         "raw_line",
     ]
     placeholders = ", ".join("?" for _ in columns)
+    update_columns = [
+        column
+        for column in columns
+        if column not in {"source_file", "source_line"}
+    ]
+    update_clause = ", ".join(
+        f"{column} = excluded.{column}" for column in update_columns
+    )
     insert_sql = (
         f"INSERT INTO equipment_logs ({', '.join(columns)}) "
-        f"VALUES ({placeholders})"
+        f"VALUES ({placeholders}) "
+        "ON CONFLICT(source_file, source_line) DO UPDATE SET "
+        f"{update_clause}"
     )
 
     with sqlite3.connect(DB_PATH) as connection:
         connection.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
-        connection.execute(
-            "DELETE FROM equipment_logs WHERE source_file = ?",
-            (LOG_PATH.name,),
-        )
         connection.executemany(
             insert_sql,
             [[record.get(column) for column in columns] for record in records],
         )
+        source_lines = [record["source_line"] for record in records]
+        if source_lines:
+            line_placeholders = ", ".join("?" for _ in source_lines)
+            connection.execute(
+                "DELETE FROM equipment_logs "
+                "WHERE source_file = ? "
+                f"AND source_line NOT IN ({line_placeholders})",
+                [LOG_PATH.name, *source_lines],
+            )
         connection.commit()
 
     print(f"Imported {len(records)} rows into {DB_PATH}")

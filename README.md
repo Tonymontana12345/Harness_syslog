@@ -3,7 +3,7 @@
 제조 장비의 반복 오류를 SQLite 로그에서 찾고, 장비 매뉴얼 RAG 검색 결과를 근거로 점검 보고서를 작성하는 Claude Code 하네스 예제입니다.
 
 > 이 저장소의 `FAN_RPM_LOW` 오류와 장비 로그는 데모를 위해 만든 합성 데이터입니다. 공식 Prusa 오류 코드나 실제 장비 장애 기록이 아닙니다.
-> 만약 이 부분을 자사의 장비에 적용하고 싶다면 Manual에 자사의 Manaul을 넣고,DB 및 DB MCP 수정이 필요합니다. 
+> 자사 장비에 적용하려면 `data/Manual/`에 해당 장비 매뉴얼을 넣고, 로그 DB 구조와 DB MCP를 장비 규격에 맞게 수정해야 합니다.
 
 ## 처리 흐름
 
@@ -113,6 +113,52 @@ Claude Code에서 `/mcp`를 열고 `log-db`, `manual-rag`를 승인한 뒤 다�
 - Hook을 통한 필수 근거 검증
 
 실행 결과 예시는 [sample-incident-report.md](examples/sample-incident-report.md)에서 확인할 수 있습니다.
+
+## Docker로 실행
+
+Docker 버전은 Python과 MCP 의존성을 이미지에 고정합니다. Claude Code와
+`.claude/`의 Skill·Agent·Hook은 호스트에서 실행하고, 두 MCP 서버만
+컨테이너의 표준 입출력으로 연결합니다. API 키와 매뉴얼 PDF, 로컬 Chroma
+인덱스는 이미지에 포함하지 않습니다.
+
+환경 파일을 만들고 OpenAI API 키를 입력합니다.
+
+```bash
+cp .env.example .env
+```
+
+Prusa 매뉴얼을 아래 경로에 배치한 뒤 이미지를 빌드합니다.
+
+```text
+data/Manual/prusa3d_manual_core_one_l_101_en.pdf
+```
+
+```bash
+docker compose build
+docker compose run --rm init-db
+docker compose run --rm index-manual
+```
+
+Claude Code에서 Docker MCP 설정을 사용하려면 기존 로컬 설정을 보관한 후
+Docker 설정으로 교체합니다.
+
+```bash
+cp .mcp.json .mcp.local.json
+cp .mcp.docker.json .mcp.json
+claude
+```
+
+Claude Code의 `/mcp`에서 `log-db`와 `manual-rag`를 승인하면 기존과 같은
+`@incident-analyst` 요청을 실행할 수 있습니다. 로컬 Python 실행 방식으로
+돌아갈 때는 다음 명령을 사용합니다.
+
+```bash
+cp .mcp.local.json .mcp.json
+```
+
+Docker는 실행 환경을 재현하지만 현재 구조를 완전한 폐쇄망으로 만들지는
+않습니다. 매뉴얼 임베딩과 질의 변환은 OpenAI API를 사용하므로 폐쇄망에서는
+로컬 임베딩 모델과 로컬 LLM으로 교체해야 합니다.
 
 ## 데이터베이스
 

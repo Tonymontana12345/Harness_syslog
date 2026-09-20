@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+.claude/settings.local.json
+.portfolio-build
+portfolio
+Token
+output
+data/Manual/*.pdf
+data/Store/chroma
+__pycache__
+*.py[cod]
+.DS_Store

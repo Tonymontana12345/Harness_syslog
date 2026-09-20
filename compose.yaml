@@ -1,0 +1,40 @@
+services:
+  init-db:
+    build:
+      context: .
+    image: harness-syslog:local
+    command: ["python", "data/DB/import_log.py"]
+    volumes:
+      - ./data/DB:/app/data/DB
+      - ./data/Log:/app/data/Log:ro
+
+  index-manual:
+    build:
+      context: .
+    image: harness-syslog:local
+    command: ["python", "rag/index_manual.py", "--rebuild"]
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ./data/Manual:/app/data/Manual:ro
+      - ./data/Store/chroma:/app/data/Store/chroma
+
+  log-db:
+    build:
+      context: .
+    image: harness-syslog:local
+    command: ["python", "mcp_servers/log_db_server.py"]
+    stdin_open: true
+    volumes:
+      - ./data/DB:/app/data/DB:ro
+
+  manual-rag:
+    build:
+      context: .
+    image: harness-syslog:local
+    command: ["python", "mcp_servers/manual_rag_server.py"]
+    stdin_open: true
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ./data/Store/chroma:/app/data/Store/chroma

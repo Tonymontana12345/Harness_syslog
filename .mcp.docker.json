@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "log-db": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "compose",
+        "run",
+        "--rm",
+        "-T",
+        "log-db"
+      ]
+    },
+    "manual-rag": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "compose",
+        "run",
+        "--rm",
+        "-T",
+        "manual-rag"
+      ]
+    }
+  }
+}
